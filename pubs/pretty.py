@@ -2,6 +2,8 @@ from __future__ import unicode_literals
 
 import os
 import re
+import csv
+import os
 
 from . import color
 from .bibstruct import TYPE_KEY
@@ -33,19 +35,34 @@ def short_authors(bibdata):
     except KeyError:  # When no author is defined
         return ''
 
+def read_journal_abbrv(journal):
+    with open('/homel/rcheca/.pubs/abbrev.csv', mode='r') as infile:
+        reader = csv.reader(infile, delimiter=';')
+        abbrev = {rows[0]:rows[1] for rows in reader}
+    if journal in abbrev.keys():
+        journal_abbrev = abbrev[journal]
+    else:
+        journal_abbrev = journal
+
+    return journal_abbrev
 
 def bib_oneliner(bibdata):
     authors = short_authors(bibdata)
     journal = ''
     if 'journal' in bibdata:
-        journal = ' ' + bibdata['journal']
+        jabbrev = read_journal_abbrv(bibdata['journal'])
+        journal = ' [paper ] ' + jabbrev
     elif bibdata[TYPE_KEY] == 'inproceedings':
-        journal = ' ' + bibdata.get('booktitle', '')
+        journal = ' [other ] ' + bibdata.get('booktitle', '')
+    elif bibdata[TYPE_KEY] == 'incollection':
+        journal = ' [book  ] ' + bibdata.get('booktitle', '')
+
+    ptitle = bibdata.get('title', '')[0:55]+'...'
 
     return sanitize('{authors} \"{title}\"{journal}{year}'.format(
-        authors=color.dye_out(authors, 'author'),
-        title=color.dye_out(bibdata.get('title', ''), 'title'),
-        journal=color.dye_out(journal, 'publisher'),
+        authors=color.dye_out(authors[0:35].ljust(35), 'author'),
+        title=color.dye_out(ptitle[0:58].ljust(58), 'title'),
+        journal=color.dye_out(journal[0:40].ljust(40), 'publisher'),
         year=' ({})'.format(color.dye_out(bibdata['year'], 'year'))
              if 'year' in bibdata else ''
     ))
@@ -75,5 +92,5 @@ def paper_oneliner(p, citekey_only=False):
         tags = '' if len(p.tags) == 0 else '| {}'.format(
             ','.join(color.dye_out(t, 'tag') for t in sorted(p.tags)))
         return '[{citekey}] {descr}{doc} {tags}'.format(
-            citekey=color.dye_out(p.citekey, 'citekey'),
+            citekey=color.dye_out(p.citekey.ljust(35), 'citekey'),
             descr=bibdesc, tags=tags, doc=doc_str)
